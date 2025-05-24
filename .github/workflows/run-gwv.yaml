@@ -6,6 +6,11 @@ on:
       dump-artifact-id:
         required: true
         type: string
+        description: The artifact ID of the dump to process.
+    outputs:
+      result-artifact-id:
+        description: The ID of the artifact containing the GWV result.
+        value: ${{ jobs.run-gwv.outputs.upload-artifact-id }}
 
 permissions:
   contents: read
@@ -13,6 +18,8 @@ permissions:
 jobs:
   run-gwv:
     runs-on: ubuntu-latest
+    outputs:
+      upload-artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -42,33 +49,14 @@ jobs:
           gwv --ignore-error --out gwv_result_pre.json dump/dump_newest_only.txt
       - name: Transform Output
         run: |
+          mkdir gwv_result
           jq --compact-output '{
             result: with_entries(.value = .value.result),
             lastModified: to_entries[0].value.timestamp,
-          }' gwv_result_pre.json > gwv_result.json
-      - name: Upload Artifact
+          }' gwv_result_pre.json > gwv_result/gwv_result.json
+      - id: upload-artifact
+        name: Upload Artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gwv_result
-          path: gwv_result.json
-
-  upload-gwv-result:
-    needs: run-gwv
-    runs-on: ubuntu-latest
-    environment: upload-to-gist
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: gwv_result
-      - name: Upload to Gist
-        env:
-          GH_TOKEN: ${{ secrets.GIST_PAT }}
-          GIST_ID_GWV: cef8cd1cc8de3484739839816a165e20
-        run: |
-          gh api \
-            --method PATCH \
-            --header "Accept: application/vnd.github+json" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --silent \
-            "/gists/$GIST_ID_GWV" \
-            --field "files[gwv_result.json][content]=@gwv_result.json"
+          path: gwv_result
