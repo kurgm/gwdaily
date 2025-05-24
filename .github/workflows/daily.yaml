@@ -1,0 +1,29 @@
+name: Daily Update
+
+on:
+  # schedule:
+  #   # JST 02:07
+  #   - cron: "7 17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-dump:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
+    steps:
+      - name: Download dump
+        run: curl https://glyphwiki.org/dump.tar.gz | tar -xzf - dump_newest_only.txt
+      - id: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dump
+          path: dump_newest_only.txt
+  run-gwv:
+    needs: download-dump
+    uses: ./.github/workflows/run-gwv.yaml
+    with:
+      dump-artifact-id: ${{ needs.download-dump.outputs.artifact-id }}

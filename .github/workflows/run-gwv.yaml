@@ -1,0 +1,71 @@
+name: Run GWV
+
+on:
+  workflow_call:
+    inputs:
+      dump-artifact-id:
+        required: true
+        type: string
+
+jobs:
+  run-gwv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ inputs.dump-artifact-id }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: pypy3.10
+      - name: Get GWV Version
+        run: |
+          GIT_REMOTE=https://github.com/kurgm/gwv.git
+          LATEST_SHA=$(git ls-remote "$GIT_REMOTE" HEAD | awk '{print $1}')
+          echo "gwv @ git+${GIT_REMOTE}@${LATEST_SHA}" > requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            .venv
+          key: ${{ runner.os }}-pip-gwv-${{ hashFiles('**/requirements.txt') }}
+      - name: Install Dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -r requirements.txt
+      - name: Run GWV
+        run: |
+          . .venv/bin/activate
+          gwv --ignore-error --out gwv_result_pre.json dump_newest_only.txt
+      - name: Transform Output
+        run: |
+          jq --compact-output '{
+            result: with_entries(.value = .value.result),
+            lastModified: to_entries[0].value.timestamp,
+          }' gwv_result_pre.json > gwv_result.json
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gwv_result
+          path: gwv_result.json
+
+  upload-gwv-result:
+    needs: run-gwv
+    runs-on: ubuntu-latest
+    environment: upload-to-gist
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: gwv_result
+      - name: Upload to Gist
+        env:
+          GH_TOKEN: ${{ secrets.GIST_PAT }}
+          GIST_ID_GWV: cef8cd1cc8de3484739839816a165e20
+        run: |
+          gh api \
+            --method PATCH \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --silent \
+            "/gists/$GIST_ID_GWV" \
+            --field "files[gwv_result.json][content]=@gwv_result.json"
