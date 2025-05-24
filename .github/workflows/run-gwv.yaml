@@ -39,7 +39,7 @@ jobs:
       - name: Run GWV
         run: |
           . .venv/bin/activate
-          gwv --ignore-error --out gwv_result_pre.json dump_newest_only.txt
+          gwv --ignore-error --out gwv_result_pre.json dump/dump_newest_only.txt
       - name: Transform Output
         run: |
           jq --compact-output '{
