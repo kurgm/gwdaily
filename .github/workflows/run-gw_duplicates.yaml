@@ -24,6 +24,13 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           artifact-ids: ${{ inputs.dump-artifact-id }}
+          merge-multiple: true
+      - name: Untar Dump
+        run: |
+          mkdir dump
+          tar -xf dump.tar -C dump
+          ls -l dump
+          rm dump.tar
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: pypy3.10
@@ -35,11 +42,10 @@ jobs:
           path: gw_duplicates
       - name: Run gw_duplicates
         run: |
-          mkdir gw_duplicates_result
-          python ./gw_duplicates/listup_duplicates.py --out_path gw_duplicates_result/duplicates.json dump/dump_newest_only.txt
+          python ./gw_duplicates/listup_duplicates.py --out_path duplicates.json dump/dump_newest_only.txt
       - id: upload-artifact
         name: Upload Artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gw_duplicates_result
-          path: gw_duplicates_result
+          path: duplicates.json
