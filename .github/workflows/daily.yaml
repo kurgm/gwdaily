@@ -5,6 +5,11 @@ on:
     # JST 02:07
     - cron: "7 17 * * *"
   workflow_dispatch:
+    inputs:
+      run_gwv:
+        description: 'Run GWV update'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -28,6 +33,7 @@ jobs:
 
   run-gwv:
     needs: download-dump
+    if: ${{ github.event_name == 'schedule' || inputs.run_gwv == true }}
     uses: ./.github/workflows/run-gwv.yaml
     with:
       dump-artifact-id: ${{ needs.download-dump.outputs.artifact-id }}
