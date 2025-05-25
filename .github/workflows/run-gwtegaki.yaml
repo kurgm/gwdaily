@@ -1,0 +1,70 @@
+name: Run gwtegaki
+
+on:
+  workflow_call:
+    inputs:
+      dump-artifact-id:
+        required: true
+        type: string
+        description: The artifact ID of the dump to process.
+    outputs:
+      result-artifact-id:
+        description: The ID of the artifact containing the gwtegaki result.
+        value: ${{ jobs.run-gwtegaki.outputs.upload-artifact-id }}
+
+permissions:
+  contents: read
+
+jobs:
+  run-gwtegaki:
+    runs-on: ubuntu-latest
+    outputs:
+      upload-artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ inputs.dump-artifact-id }}
+          merge-multiple: true
+      - name: Untar Dump
+        run: |
+          mkdir dump
+          tar -xf dump.tar -C dump
+          ls -l dump
+          rm dump.tar
+      - name: Checkout gwtegaki
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: kurgm/gwtegaki
+          ref: master
+          path: gwtegaki
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: gwtegaki/.node-version
+          cache: npm
+          cache-dependency-path: gwtegaki/package-lock.json
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            gwtegaki/target
+          key: ${{ runner.os }}-cargo-gwtegaki-${{ steps.checkout-gwtegaki.outputs.commit }}
+      - name: Check Rust Version
+        run: |
+          rustc --version
+          cargo --version
+      - name: Install npm dependencies
+        run: |
+          cd gwtegaki
+          npm ci
+      - name: Run gwtegaki
+        run: |
+          cd gwtegaki/build_index
+          ln -s ../../dump/dump_newest_only.txt dump_newest_only.txt
+          make
+      - id: upload-artifact
+        name: Upload Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gwtegaki_result
+          path: gwtegaki/build_index/dataset/

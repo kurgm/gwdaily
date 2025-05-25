@@ -14,6 +14,10 @@ on:
         description: 'Run gw_duplicates update'
         type: boolean
         default: true
+      run_gwtegaki:
+        description: 'Run gwtegaki update'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -90,3 +94,35 @@ jobs:
             --silent \
             "/gists/$GIST_ID_GW_DUPLICATES" \
             --field "files[duplicates.json][content]=@duplicates.json"
+
+  run-gwtegaki:
+    needs: download-dump
+    if: ${{ github.event_name == 'schedule' || inputs.run_gwtegaki == true }}
+    uses: ./.github/workflows/run-gwtegaki.yaml
+    with:
+      dump-artifact-id: ${{ needs.download-dump.outputs.artifact-id }}
+  upload-gwtegaki-result:
+    needs: run-gwtegaki
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: upload-to-gcs
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.run-gwtegaki.outputs.result-artifact-id }}
+          merge-multiple: true
+          path: hnsw
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@ba79af03959ebeac9769e648f473a284504d9193 # v2.1.10
+        with:
+          project_id: ku6goma
+          workload_identity_provider: projects/482600618026/locations/global/workloadIdentityPools/github-actions/providers/gwdaily
+      - name: Upload to GCS
+        uses: google-github-actions/upload-cloud-storage@7c6e11cb7291594c5dfe0bc1dd9cd905e31e600c # v2.2.2
+        with:
+          path: hnsw
+          destination: ${{ secrets.GCS_BUCKET_NAME_GWTEGAKI }}
+          gzip: false
+          process_gcloudignore: false
