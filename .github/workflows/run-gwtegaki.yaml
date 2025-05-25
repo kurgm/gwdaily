@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload-artifact-id: ${{ steps.upload-artifact.outputs.artifact-id }}
+    timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -31,7 +32,8 @@ jobs:
           tar -xf dump.tar -C dump
           ls -l dump
           rm dump.tar
-      - name: Checkout gwtegaki
+      - id: checkout-gwtegaki
+        name: Checkout gwtegaki
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: kurgm/gwtegaki
