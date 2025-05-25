@@ -10,6 +10,10 @@ on:
         description: 'Run GWV update'
         type: boolean
         default: true
+      run_gw_duplicates:
+        description: 'Run gw_duplicates update'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -57,3 +61,30 @@ jobs:
             --silent \
             "/gists/$GIST_ID_GWV" \
             --field "files[gwv_result.json][content]=@gwv_result/gwv_result.json"
+
+  run-gw_duplicates:
+    needs: download-dump
+    if: ${{ github.event_name == 'schedule' || inputs.run_gw_duplicates == true }}
+    uses: ./.github/workflows/run-gw_duplicates.yaml
+    with:
+      dump-artifact-id: ${{ needs.download-dump.outputs.artifact-id }}
+  upload-gw-duplicates-result:
+    needs: run-gw_duplicates
+    runs-on: ubuntu-latest
+    environment: upload-to-gist
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.run-gw_duplicates.outputs.result-artifact-id }}
+      - name: Upload to Gist
+        env:
+          GH_TOKEN: ${{ secrets.GIST_PAT }}
+          GIST_ID_GW_DUPLICATES: cc8ec3b2d9a1cc63b39c8663328edfc6
+        run: |
+          gh api \
+            --method PATCH \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --silent \
+            "/gists/$GIST_ID_GW_DUPLICATES" \
+            --field "files[duplicates.json][content]=@gw_duplicates_result/duplicates.json"
