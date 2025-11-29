@@ -32,6 +32,11 @@ jobs:
       - name: Download dump
         run: |
           curl https://glyphwiki.org/dump.tar.gz | tar -xzf - dump_newest_only.txt
+          # Ensure the file is not empty
+          if [ ! -s dump_newest_only.txt ]; then
+            echo "error: dump_newest_only.txt is empty!"
+            exit 1
+          fi
           # Use tar to preserve file timestamps
           tar -cf dump.tar dump_newest_only.txt
       - id: upload-artifact
